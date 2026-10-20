@@ -13,6 +13,7 @@ Hands-on security write-ups from the **Cybersecurity Solutions & Analytics Bootc
 | [**appsec/**](appsec/) | OWASP Juice Shop labs across the OWASP Top 10, plus the Argon2id [credential-storage challenge](appsec/credential-storage-challenge/) |
 | [**portswigger/**](portswigger/) | Seven PortSwigger Web Security Academy labs (access control, authentication, business logic), solved with Burp Suite |
 | [**mobile/**](mobile/) | VaultBank Android pentest: [Easy & Medium](mobile/vaultbank-easy-medium/) and [Hard & Insane](mobile/vaultbank-hard-insane/) tiers |
+| [**incident-response/**](incident-response/) | stc × Misk incident-response simulation: SIEM log analysis in Splunk, blocked-traffic triage, and incident reporting |
 | [**network/**](network/) | Network domain labs: OSI model, subnetting, port-scan scripting, attack-case analysis, FTP traffic analysis in Wireshark |
 
 Each lab page follows the same layout: a short description, an overview of the vulnerability, a step-by-step solution with every screenshot explained, and a root-cause / impact / fix table.
@@ -22,6 +23,7 @@ Each lab page follows the same layout: a short description, an overview of the v
 - **Web:** Burp Suite (Proxy, Repeater, Intruder), OWASP Top 10, SQL injection, XSS, IDOR, access control, business-logic flaws
 - **Mobile:** jadx, apktool, Frida, objection, Ghidra, adb, JWT tampering
 - **Network:** Wireshark, Nmap, Netcat, OSI analysis, subnetting
+- **Incident response:** Splunk (SIEM), proxy-log triage, blocked-traffic analysis, incident reporting
 - **Secure coding:** Argon2id password storage, timing-safe verification
 
 ## About these labs
