@@ -18,11 +18,21 @@ Findings are ordered by severity, highest first.
 ### E2 · The Key Under the Mat — High
 A live payment provider API key is baked into the build. It lands in the generated `BuildConfig` class as the `API_KEY` constant, in plain text. The value starts with `sk_live_`, so it is a real key.
 
+
+![The live API key exposed as a constant in BuildConfig (jadx).](images/fig1.png)
+
+jadx shows the `API_KEY` constant sitting in the generated `BuildConfig` class in plain text, starting with `sk_live_`, so it is a real key anyone who unpacks the app can read.
+
 - **Impact:** `buildConfigField` values become plain strings in the compiled DEX. Anyone who extracts the app could use the key against the real payment account.
 - **Remediation:** Never hardcode live keys in the app. Route payment calls through a backend that holds the key, and rotate the exposed key immediately.
 
 ### M2 · Provider That Overshares — High
 `VaultProvider.query` returns the whole table with no filtering and no permission check, and the provider is exported in the manifest with no permission. Any app, or adb, can query it and read every row.
+
+
+![The content query returns every row, including provider_flag.](images/fig2.png)
+
+Querying the exported provider from adb dumps the whole table with no permission check. (My machine's username is blacked out in the prompt.)
 
 - **Impact:** An exported provider with no permission and no access control lets anyone read the app's database.
 - **Remediation:** Set the provider to not exported, or require a signature-level permission, and filter queries so callers only get rows they are authorized to see.
@@ -30,11 +40,21 @@ A live payment provider API key is baked into the build. It lands in the generat
 ### M3 · Auth on the Wrong Side — High
 There is a hidden staff sign-in whose decision is made entirely on the device. `LoginActivity` hardcodes the staff username and password and a `validateLocal` method that just compares input to those constants. The credentials can be read from the code, and the check can be bypassed without them.
 
+
+![The hidden staff sign-in, opened with the hardcoded credentials.](images/fig3.png)
+
+Signing in with the username and password read straight from the code opens the staff view, which proves the decision was made on the device.
+
 - **Impact:** Any authentication decision made on the client can be read or bypassed. It belongs on the server.
 - **Remediation:** Move authentication to the server. Never ship credentials in the app, and never make the access decision on the client.
 
 ### M1 · Insecure Local Storage — Medium
 After login the app stores data on the device in the clear. `LoginActivity` calls `getSharedPreferences("session", 0)` then `putString("session_flag", ...)`, writing to `shared_prefs/session.xml`. The `0` is `MODE_PRIVATE`, which only blocks other apps and does not encrypt.
+
+
+![session.xml read with run-as, showing the stored value in plain text.](images/fig4.png)
+
+Reading the app's own SharedPreferences file shows the session value sitting in cleartext inside the sandbox. (Username blacked out.)
 
 - **Impact:** SharedPreferences is just XML inside the app sandbox. With root or a debuggable build it is readable, so any secret stored there is effectively cleartext.
 - **Remediation:** Do not store secrets in SharedPreferences. Keep session state server-side, or use the Android Keystore for anything that must live on the device.
@@ -42,11 +62,21 @@ After login the app stores data on the device in the clear. `LoginActivity` call
 ### E3 · The Door Left Open — Medium
 `SecretActivity` is declared `exported="true"` with no intent-filter in the manifest. Nothing in the interface links to it, but it can still be started from outside the app. Its `onCreate` writes the flag straight into the screen text.
 
+
+![The internal QA screen, launched from outside the app.](images/fig5.png)
+
+`SecretActivity` opens on the device even though nothing in the UI links to it, because it is exported.
+
 - **Impact:** Exported true lets any app, or the adb shell, start a component. Reachable plus hidden is the whole bug.
 - **Remediation:** Set exported to false on internal screens, or guard them with a signature-level permission.
 
 ### E4 · Loud Logs — Medium
 During sign-in the app writes a session token to the device log in the clear, under a custom tag `VaultBankAuth`. The same token is also hardcoded in `LoginActivity`.
+
+
+![The session token leaked to logcat under the VaultBankAuth tag.](images/fig6.png)
+
+During sign-in the app writes the session token to the device log in clear text, where anyone with log access can read it.
 
 - **Impact:** logcat is readable through adb and by anything with log access. Sensitive values should never be logged, even in debug builds.
 - **Remediation:** Remove the hardcoded token and strip debug logging of sensitive values from release builds.
@@ -54,11 +84,21 @@ During sign-in the app writes a session token to the device log in the clear, un
 ### M4 · Your Own Key, Handed to You — Medium
 An encrypted premium license ships inside the app alongside the key that unlocks it. `Crypto.java` holds the key `0123456789abcdef`, the base64 ciphertext `LICENSE_BLOB`, and the algorithm `AES/ECB/PKCS5Padding`.
 
+
+![CyberChef decrypts the license: From Base64, then AES Decrypt.](images/fig7.png)
+
+Because the key ships inside the app, the encrypted license decrypts offline in seconds.
+
 - **Impact:** Strong encryption is useless if the key ships in the same app. The key has to live outside the client.
 - **Remediation:** Keep the key off the client. Decrypt server-side, or derive the key from a server-provided secret at runtime.
 
 ### E1 · Strings Don't Hide Secrets — Low
 A promotional code is built into the app and never shown in the interface. It lives in the string resources, in a resource named `promo_code`, in plain text.
+
+
+![The promo_code value found in the string resources (jadx).](images/fig8.png)
+
+The promo code sits in `strings.xml` in plain text, readable by anyone who opens the APK.
 
 - **Impact:** String resources are storage for static data, not a security boundary. Every value ships word for word inside the APK.
 - **Remediation:** Do not ship secrets in string resources. Keep promo codes on the server and fetch them at runtime.
@@ -66,11 +106,21 @@ A promotional code is built into the app and never shown in the interface. It li
 ### E5 · Config Says Too Much — Low
 A bundled config file, `assets/config.json`, carries a `telemetry_key` field shaped like Base64 among otherwise plain fields. That mismatch marks it as the target, and decoding it reveals the flag.
 
+
+![Decoding the Base64 telemetry_key in CyberChef.](images/fig9.png)
+
+The `assets/config.json` value was only Base64-encoded, not encrypted, so decoding it reveals the secret.
+
 - **Impact:** Files under assets are shipped word for word inside the APK, and Base64 is encoding, not encryption.
 - **Remediation:** Do not ship secrets in assets. Move the telemetry key server-side.
 
 ### M5 · Root Check, in Java — Low
 A rewards feature refuses to run on rooted devices. `DashboardActivity` gates the reward behind `RootCheck.isRootedJava()`, which looks for su binaries and checks `Build.TAGS` for test-keys. Because the check runs in the app, it can be forced to return false.
+
+
+![The reward unlocks once the client-side root check is bypassed.](images/fig10.png)
+
+With `RootCheck.isRootedJava()` forced to return false, the rewards feature runs on a rooted device.
 
 - **Impact:** A root check that runs inside the app can be flipped by the attacker. It slows people down but does not stop them.
 - **Remediation:** Do not rely on a client-side root check as a security control. Enforce sensitive logic server-side, with attestation if integrity matters.
